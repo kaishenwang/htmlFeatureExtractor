@@ -2,226 +2,126 @@ package main
 
 import (
 	"golang.org/x/net/html"
-	"strings"
-	"net/http"
 	"log"
-	"fmt"
-	"unicode/utf8"
-	"io"
 	"bytes"
-	"regexp"
-	"io/ioutil"
+	"sync"
+	"flag"
+	"os"
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"strconv"
 )
 
-var newLine =`
-`
-type treeInfo struct {
-	headTextLen int
-	bodyTextLen int
-	index 	bool
-	follow  bool
-	archive bool
-	snippet bool
-	translate bool
-	imageindex bool
-	unavailable_after bool
+func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGroup) {
+	defer (*wg).Done()
+	for line:= range(input) {
+		grabData := encodedGrab{}
+		fmt.Println(grabData.Domain)
+		json.Unmarshal([]byte(line), &grabData)
+		if grabData.Error != nil && len(*grabData.Error) > 0 {
+			continue
+		}
+		sTmp := html.UnescapeString(grabData.Data.HTTP.Response.BodyText)
+		respBytes := []byte(sTmp)
+		rawProcess := bytes.NewReader(respBytes)
+		treeParser := bytes.NewReader(respBytes)
+		otherRes := collectRawPageInfo(rawProcess)
+		doc, err := html.Parse(treeParser)
+		if err != nil {
+			log.Fatal(err)
+		}
+		treeRes := parseRoot(doc, 0)
+		output <- pageInfo{
+			grabData.Domain,
+			grabData.URL,
+			treeRes,
+			otherRes,
+		}
+	}
 }
 
-type otherInfo struct {
-	jsCodeLen int
-	rawStrLen int
-	frameTagCount int
-	aTagCount	int
-	aTagLen 	int
+func outputWriter(input <-chan pageInfo, wg *sync.WaitGroup) {
+	defer (*wg).Done()
+	var f *os.File
+	if outputFile == "" || outputFile == "-" {
+		f = os.Stdout
+	} else {
+		var err error
+		f, err = os.OpenFile(outputFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			log.Fatal("unable to open output file:", err.Error())
+		}
+	}
+	defer f.Close()
+	fieldLine := "domain,URL,headTextLen,bodyTextLen,index,follow,archive,snippet,translate,imageindex," +
+		"unavailable_after,jsCodeLen,rawPageLen,frameTagCount,aTagCount,aTagLen\n"
+	f.WriteString(fieldLine)
+	for info := range(input) {
+		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+			info.domain, info.url, strconv.Itoa(info.tInfo.headTextLen), strconv.Itoa(info.tInfo.bodyTextLen),
+			boolToString(info.tInfo.index), boolToString(info.tInfo.follow), boolToString(info.tInfo.archive),
+			boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate), boolToString(info.tInfo.imageindex),
+			boolToString(info.tInfo.unavailable_after),strconv.Itoa(info.oInfo.jsCodeLen),
+			strconv.Itoa(info.oInfo.rawPageLen),strconv.Itoa(info.oInfo.frameTagCount),
+			strconv.Itoa(info.oInfo.aTagCount),strconv.Itoa(info.oInfo.aTagLen)))
+	}
 }
 
-
+var (
+	inputFile string
+	outputFile string
+)
 
 func main() {
-	resp, err := http.Get("https://www.1point3acres.com/bbs/thread-494681-1-1.html")
+	flags := flag.NewFlagSet("flags", flag.ExitOnError)
+	flags.StringVar(&inputFile, "input-file", "/data1/nsrg/kwang40/fullData/2019-03-03/banners.json",
+		"file contained zgrab data")
+	flags.StringVar(&outputFile, "output-file", "-", "file for output, stdout as default")
+	flags.Parse(os.Args[1:])
 
-	respBytes, _ :=  ioutil.ReadAll(resp.Body)
-	rawProcess := bytes.NewReader(respBytes)
-	treeParser := bytes.NewReader(respBytes)
-	otherRes := collectRawPageInfo(rawProcess)
-	doc, err := html.Parse(treeParser)
-	if err != nil {
-		log.Fatal(err)
+	inputChan := make (chan string)
+	outputChan := make (chan pageInfo)
+	var outputWG sync.WaitGroup
+	outputWG.Add(1)
+	go outputWriter(outputChan, &outputWG)
+
+	workerCount := 1
+	var workerWG sync.WaitGroup
+	workerWG.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go extractWorker(inputChan, outputChan, &workerWG)
 	}
-	treeRes := parseRoot(doc, 0)
-	fmt.Println(treeRes.headTextLen)
-	fmt.Println(treeRes.bodyTextLen)
-	if !treeRes.archive {
-		fmt.Println("noarchive")
+
+	var f *os.File
+	var err error
+	if f, err = os.Open(inputFile); err != nil {
+		log.Fatal("unable to open input file:", err.Error())
 	}
-	fmt.Println(otherRes.jsCodeLen)
-	fmt.Println(otherRes.rawStrLen)
-	fmt.Println(otherRes.frameTagCount)
-	fmt.Println(otherRes.aTagCount)
-	fmt.Println(otherRes.aTagLen)
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	buf := make([]byte, 0, 10*64*1024)
+	s.Buffer(buf, 10*1024*1024)
+
+	for s.Scan() {
+		line := s.Text()
+		inputChan<-line
+	}
+	if err := s.Err(); err != nil {
+		fmt.Println(err)
+	}
+	close(inputChan)
+	workerWG.Wait()
+	close(outputChan)
+	outputWG.Wait()
 }
 
 // Utility
-
-// countJSCode
-func collectRawPageInfo(r io.Reader) otherInfo{
-	buf := new(bytes.Buffer)
-	buf.ReadFrom(r)
-	bufByte := buf.Bytes()
-	reg := regexp.MustCompile(`<script`)
-	scriptStarts := reg.FindAllIndex(bufByte, -1)
-	reg = regexp.MustCompile(`</script>`)
-	scriptEnds := reg.FindAllIndex(bufByte, -1)
-	JSCodeLen := 0
-	for i := 0; i < len(scriptStarts); i++ {
-		JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[i][0]:scriptEnds[i][1]])
-	}
-	reg = regexp.MustCompile(`<frame`)
-	frameTagCount := len(reg.FindAllIndex(bufByte, -1))
-	reg = regexp.MustCompile(`<a `)
-	aTags := reg.FindAllIndex(bufByte, -1)
-	aTagLen := 0
-	for _,aTagStarts := range(aTags) {
-		end := aTagStarts[1] + 1
-		for;;end++ {
-			if bufByte[end] == '>' {
-				end += 1
-				break
-			}
-		}
-		aTagLen += end - aTagStarts[0]
-	}
-
-	return otherInfo{
-		JSCodeLen,
-		utf8.RuneCount(bufByte),
-		frameTagCount,
-		len(aTags),
-		aTagLen,
-	}
-}
-
-// Tree Parsing
-func parseBodyNode(n *html.Node) treeInfo {
-	res := newTreeInfo()
-	if (n.Type != html.ElementNode) && (n.Type != html.TextNode) {
-		return res
-	}
-	if (n.Type == html.ElementNode) && (n.Data == "script") {
-		return res
-	}
-	if (n.Type == html.TextNode) {
-		res.bodyTextLen += utf8.RuneCountInString(n.Data) - strings.Count(n.Data, " ") - strings.Count(n.Data, newLine)
-		return res
-	}
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		res =  accumulateFeatures(res,parseBodyNode(c))
-	}
-	return res
-}
-
-func parseHeadNode(n *html.Node, titleNode bool) treeInfo {
-	res := newTreeInfo()
-	if (n.Type == html.TextNode && titleNode) {
-		res.headTextLen += utf8.RuneCountInString(n.Data) - strings.Count(n.Data, " ") - strings.Count(n.Data, newLine)
-		return res
-	}
-
-	if (n.Type != html.ElementNode) && (n.Type != html.TextNode) {
-		return res
-	}
-	// parse robot value
-	if (n.Type == html.ElementNode) && (strings.ToLower(n.Data) == "meta") {
-		attrs := n.Attr
-		robotTag := false
-		contents := ""
-		for _,attr := range(attrs) {
-			if strings.ToLower(attr.Key) == "name" {
-				robotTag = strings.ToLower(attr.Val) == "robots" || strings.ToLower(attr.Val) == "googlebot"
-			}
-			if strings.ToLower(attr.Key) == "content" {
-				contents = strings.ToLower(attr.Val)
-			}
-		}
-		if robotTag {
-			tags := strings.Split(contents, ",")
-			if strings.Contains(contents, "unavailable_after") {
-				res.unavailable_after = false
-			}
-			for _,tag := range(tags) {
-				if tag == "noindex" {
-					res.index = false
-				} else if tag == "nofollow" {
-					res.follow = false
-				} else if tag == "none" {
-					res.index = false
-					res.follow = false
-				} else if tag == "noarchive" {
-					res.archive = false
-				} else if tag == "nosnippet" {
-					res.snippet = false
-				} else if tag == "notranslate" {
-					res.translate = false
-				} else if tag == "noimageindex" {
-					res.imageindex = false
-				}
-			}
-		}
-	}
-
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		res =  accumulateFeatures(res, parseHeadNode(c, (n.Data == "title")))
-	}
-	return res
-}
-
-func parseRoot(n *html.Node, depth int) treeInfo {
-	features := newTreeInfo()
-	if (n.Type == html.CommentNode) {
-		return features
-	}
-
-	if (n.Type == html.ElementNode) && (strings.ToLower(n.Data) == "head") {
-		features = accumulateFeatures(features, parseHeadNode(n, false))
-		return features
-	}
-
-	if (n.Type == html.ElementNode) && (strings.ToLower(n.Data) == "body") {
-		features = accumulateFeatures(features, parseBodyNode(n))
-		return features
-	}
-
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		tmp := parseRoot(c, depth+1)
-		features = accumulateFeatures(features, tmp)
-	}
-	return features
-}
-
-func accumulateFeatures(a treeInfo, b treeInfo) treeInfo {
-	return treeInfo{
-		a.headTextLen + b.headTextLen,
-		a.bodyTextLen + b.bodyTextLen,
-		a.index && b.index,
-		a.follow && b.follow,
-		a.archive && b.archive,
-		a.snippet && b.snippet,
-		a.translate && b.translate,
-		a.imageindex && b.imageindex,
-		a.unavailable_after || b.unavailable_after,
-	}
-}
-
-func newTreeInfo() treeInfo {
-	return treeInfo{
-		0,
-		0,
-		true,
-		true,
-		true,
-		true,
-		true,
-		true,
-		false,
+func boolToString(b bool) string {
+	if b {
+		return "1"
+	} else {
+		return "0"
 	}
 }
