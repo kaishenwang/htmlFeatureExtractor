@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/kwang40/zgrab/zlib"
+	"github.com/zmap/zgrab/zlib"
 )
 
 
