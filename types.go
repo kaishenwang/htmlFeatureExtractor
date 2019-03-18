@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/zmap/zgrab/zlib"
+	"github.com/kwang40/zgrab/zlib"
 )
 
 
@@ -69,5 +69,4 @@ type encodedGrab struct {
 	Error          *string   `json:"error,omitempty"`
 	ErrorComponent string    `json:"error_component,omitempty"`
 }
-
 

@@ -19,8 +19,20 @@ func collectRawPageInfo(r io.Reader) otherInfo{
 	reg = regexp.MustCompile(`</script>`)
 	scriptEnds := reg.FindAllIndex(bufByte, -1)
 	JSCodeLen := 0
-	for i := 0; i < len(scriptStarts); i++ {
-		JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[i][0]:scriptEnds[i][1]])
+	ei := 0
+	// There are two cases: 1. <script XXX> 2. <script XXX> XXX </script>
+	for si:= 0; si < len(scriptStarts); si++ {
+		// Case 2
+		if ei < len(scriptEnds) && (si + 1 == len(scriptStarts) || scriptStarts[si+1][0] > scriptEnds[ei][1]) {
+			JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[si][0]:scriptEnds[ei][1]])
+			ei += 1
+		} else { // case 1
+			var tmpEnd int
+			tmpEnd  = scriptStarts[si][1] + 1
+			for ;tmpEnd < len(bufByte) && bufByte[tmpEnd] != '>'; tmpEnd++{
+			}
+			JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[si][0]:tmpEnd])
+		}
 	}
 	reg = regexp.MustCompile(`<frame`)
 	frameTagCount := len(reg.FindAllIndex(bufByte, -1))
@@ -147,4 +159,12 @@ func parseRoot(n *html.Node, depth int) treeInfo {
 		features = accumulateTreeInfo(features, tmp)
 	}
 	return features
+}
+
+//
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
