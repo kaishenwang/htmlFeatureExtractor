@@ -23,7 +23,7 @@ func collectRawPageInfo(r io.Reader) otherInfo{
 	// There are two cases: 1. <script XXX> 2. <script XXX> XXX </script>
 	for si:= 0; si < len(scriptStarts); si++ {
 		// Case 2
-		if ei < len(scriptEnds) && (si + 1 == len(scriptStarts) || scriptStarts[si+1][0] > scriptEnds[ei][1]) {
+		if ei < len(scriptEnds) && (si + 1 == len(scriptStarts) || scriptStarts[si+1][0] > scriptEnds[ei][0]) {
 			JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[si][0]:scriptEnds[ei][1]])
 			ei += 1
 		} else { // case 1

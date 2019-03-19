@@ -80,7 +80,7 @@ func outputWriter(input <-chan pageInfo, wg *sync.WaitGroup) {
 		"unavailable_after,jsCodeLen,rawPageLen,frameTagCount,aTagCount,aTagLen\n"
 	f.WriteString(fieldLine)
 	for info := range(input) {
-		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
 			info.domain, info.url, strconv.Itoa(info.wwwRedirect), strconv.Itoa(info.tInfo.headTextLen),
 			strconv.Itoa(info.tInfo.bodyTextLen), boolToString(info.tInfo.index), boolToString(info.tInfo.follow),
 			boolToString(info.tInfo.archive), boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate),
