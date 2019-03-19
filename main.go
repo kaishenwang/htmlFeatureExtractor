@@ -22,6 +22,11 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 		if grabData.Error != nil && len(*grabData.Error) > 0 {
 			continue
 		}
+		if useValidDomains{
+			if _, ok := validDomains[grabData.Domain]; !ok {
+				continue
+			}
+		}
 		sTmp := html.UnescapeString(grabData.Data.HTTP.Response.BodyText)
 		respBytes := []byte(sTmp)
 		treeParser := bytes.NewReader(respBytes)
@@ -84,14 +89,38 @@ func outputWriter(input <-chan pageInfo, wg *sync.WaitGroup) {
 var (
 	inputFile string
 	outputFile string
+	validDomainsFile string
+	useValidDomains bool
+	validDomains map[string] bool
 )
 
 func main() {
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
-	flags.StringVar(&inputFile, "input-file", "/data1/nsrg/kwang40/fullData/2019-03-03/banners.json",
+	flags.StringVar(&inputFile, "input-file", "/data1/nsrg/kwang40/fullData/2019-03-11/banners.json",
 		"file contained zgrab data")
 	flags.StringVar(&outputFile, "output-file", "-", "file for output, stdout as default")
+	flags.StringVar(&validDomainsFile, "valid-domains", "",
+		"file contains valid domains, default is none")
 	flags.Parse(os.Args[1:])
+
+	// Fulfill validDomains
+	useValidDomains = false
+	if len(validDomainsFile) > 0 {
+		var f *os.File
+		var err error
+		if f, err = os.Open(validDomainsFile); err == nil {
+			s := bufio.NewScanner(f)
+			useValidDomains = true
+			for s.Scan() {
+				line := s.Text()
+				validDomains[strings.TrimSuffix(line, "\n")] = true
+			}
+		}
+		f.Close()
+
+	}
+
+
 
 	inputChan := make (chan string)
 	outputChan := make (chan pageInfo)
