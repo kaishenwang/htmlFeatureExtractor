@@ -10,8 +10,8 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGroup) {
@@ -24,9 +24,7 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 		}
 		sTmp := html.UnescapeString(grabData.Data.HTTP.Response.BodyText)
 		respBytes := []byte(sTmp)
-		rawProcess := bytes.NewReader(respBytes)
 		treeParser := bytes.NewReader(respBytes)
-		otherRes := collectRawPageInfo(rawProcess)
 		doc, err := html.Parse(treeParser)
 		if err != nil {
 			log.Fatal(err)
@@ -56,8 +54,8 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 			grabData.Domain,
 			grabData.URL,
 			isRedirect,
+			utf8.RuneCountInString(grabData.Data.HTTP.Response.BodyText),
 			treeRes,
-			otherRes,
 		}
 	}
 }
@@ -75,19 +73,11 @@ func outputWriter(input <-chan pageInfo, wg *sync.WaitGroup) {
 		}
 	}
 	defer f.Close()
-	fieldLine := "domain,URL,wwwRedirect,headTextLen,bodyTextLen,headCodeLen,bodyCodeLen,index,follow,archive," +
-		"snippet,translate,imageindex,unavailable_after,jsCodeLen,rawPageLen,frameTagCount,aTagCount,aTagLen\n"
+	fieldLine := "domain,URL,wwwRedirect,rawPageLen,headTextLen,bodyTextLen,codeLen,aTagCount,aTagLen,frameCount," +
+		"index,follow,archive,snippet,translate,imageindex,unavailable_after\n"
 	f.WriteString(fieldLine)
 	for info := range(input) {
-		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
-			info.domain, info.url, strconv.Itoa(info.wwwRedirect), 
-			strconv.Itoa(info.tInfo.headTextLen), strconv.Itoa(info.tInfo.bodyTextLen), 
-			strconv.Itoa(info.tInfo.headCodeLen), strconv.Itoa(info.tInfo.bodyCodeLen),
-			boolToString(info.tInfo.index), boolToString(info.tInfo.follow), boolToString(info.tInfo.archive), 
-			boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate),
-			boolToString(info.tInfo.imageindex), boolToString(info.tInfo.unavailable_after),
-			strconv.Itoa(info.oInfo.rawPageLen), strconv.Itoa(info.oInfo.frameTagCount), 
-			strconv.Itoa(info.oInfo.aTagCount), strconv.Itoa(info.oInfo.aTagLen)))
+		f.WriteString(ouputPageInfo(info))
 	}
 }
 

@@ -2,14 +2,18 @@ package main
 
 import (
 	"github.com/kwang40/zgrab/zlib"
+	"fmt"
+	"strconv"
 )
 
 
 type treeInfo struct {
 	headTextLen int
 	bodyTextLen int
-	headCodeLen int
-	bodyCodeLen int
+	codeLen int
+	aTagCount int
+	aTagLen  int
+	frameCount int
 	index 	bool
 	follow  bool
 	archive bool
@@ -19,23 +23,18 @@ type treeInfo struct {
 	unavailable_after bool
 }
 
-type otherInfo struct {
-	rawPageLen    int
-	frameTagCount int
-	aTagCount     int
-	aTagLen       int
-}
-
 type pageInfo struct {
 	domain string
 	url    string
 	wwwRedirect int
+	rawPageLen    int
 	tInfo  treeInfo
-	oInfo  otherInfo
 }
 
 func newTreeInfo() treeInfo {
 	return treeInfo{
+		0,
+		0,
 		0,
 		0,
 		0,
@@ -54,8 +53,10 @@ func accumulateTreeInfo(a treeInfo, b treeInfo) treeInfo {
 	return treeInfo{
 		a.headTextLen + b.headTextLen,
 		a.bodyTextLen + b.bodyTextLen,
-		a.headCodeLen + b.headCodeLen,
-		a.bodyCodeLen + b.bodyCodeLen,
+		a.codeLen + b.codeLen,
+		a.aTagCount + b.aTagCount,
+		a.aTagLen + a.aTagLen,
+		a.frameCount + b.frameCount,
 		a.index && b.index,
 		a.follow && b.follow,
 		a.archive && b.archive,
@@ -76,3 +77,12 @@ type encodedGrab struct {
 	ErrorComponent string    `json:"error_component,omitempty"`
 }
 
+func ouputPageInfo(info pageInfo) string {
+	return fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		info.domain, info.url, strconv.Itoa(info.wwwRedirect),strconv.Itoa(info.rawPageLen),
+		strconv.Itoa(info.tInfo.headTextLen), strconv.Itoa(info.tInfo.bodyTextLen),strconv.Itoa(info.tInfo.codeLen),
+		strconv.Itoa(info.tInfo.aTagCount), strconv.Itoa(info.tInfo.aTagLen), strconv.Itoa(info.tInfo.frameCount),
+		boolToString(info.tInfo.index), boolToString(info.tInfo.follow), boolToString(info.tInfo.archive),
+		boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate),
+		boolToString(info.tInfo.imageindex), boolToString(info.tInfo.unavailable_after))
+}
