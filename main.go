@@ -18,7 +18,6 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 	defer (*wg).Done()
 	for line:= range(input) {
 		grabData := encodedGrab{}
-		fmt.Println(grabData.Domain)
 		json.Unmarshal([]byte(line), &grabData)
 		if grabData.Error != nil && len(*grabData.Error) > 0 {
 			continue
@@ -109,7 +108,7 @@ func main() {
 	outputWG.Add(1)
 	go outputWriter(outputChan, &outputWG)
 
-	workerCount := 1
+	workerCount := 10
 	var workerWG sync.WaitGroup
 	workerWG.Add(workerCount)
 	for i := 0; i < workerCount; i++ {
