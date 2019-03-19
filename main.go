@@ -42,7 +42,7 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 						for k,v := range(grabData.Data.HTTP.RedirectResponseChain[i].Header) {
 							if k == "location" {
 								for _, url := range v {
-									if strings.Index(url, "www"+grabData.Domain) != -1 {
+									if strings.Index(url, "www."+grabData.Domain) != -1 {
 										isRedirect  = 1
 									}
 								}
