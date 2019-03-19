@@ -75,18 +75,19 @@ func outputWriter(input <-chan pageInfo, wg *sync.WaitGroup) {
 		}
 	}
 	defer f.Close()
-	fieldLine := "domain,URL,wwwRedirect,headTextLen,bodyTextLen,index,follow,archive,snippet,translate,imageindex," +
-		"unavailable_after,jsCodeLen,rawPageLen,frameTagCount,aTagCount,aTagLen\n"
+	fieldLine := "domain,URL,wwwRedirect,headTextLen,bodyTextLen,headCodeLen,bodyCodeLen,index,follow,archive," +
+		"snippet,translate,imageindex,unavailable_after,jsCodeLen,rawPageLen,frameTagCount,aTagCount,aTagLen\n"
 	f.WriteString(fieldLine)
 	for info := range(input) {
-		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
-			info.domain, info.url, strconv.Itoa(info.wwwRedirect), strconv.Itoa(info.tInfo.headTextLen),
-			strconv.Itoa(info.tInfo.bodyTextLen), boolToString(info.tInfo.index), boolToString(info.tInfo.follow),
-			boolToString(info.tInfo.archive), boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate),
+		f.WriteString(fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+			info.domain, info.url, strconv.Itoa(info.wwwRedirect), 
+			strconv.Itoa(info.tInfo.headTextLen), strconv.Itoa(info.tInfo.bodyTextLen), 
+			strconv.Itoa(info.tInfo.headCodeLen), strconv.Itoa(info.tInfo.bodyCodeLen),
+			boolToString(info.tInfo.index), boolToString(info.tInfo.follow), boolToString(info.tInfo.archive), 
+			boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate),
 			boolToString(info.tInfo.imageindex), boolToString(info.tInfo.unavailable_after),
-			strconv.Itoa(info.oInfo.jsCodeLen), strconv.Itoa(info.oInfo.rawPageLen),
-			strconv.Itoa(info.oInfo.frameTagCount), strconv.Itoa(info.oInfo.aTagCount),
-			strconv.Itoa(info.oInfo.aTagLen)))
+			strconv.Itoa(info.oInfo.rawPageLen), strconv.Itoa(info.oInfo.frameTagCount), 
+			strconv.Itoa(info.oInfo.aTagCount), strconv.Itoa(info.oInfo.aTagLen)))
 	}
 }
 

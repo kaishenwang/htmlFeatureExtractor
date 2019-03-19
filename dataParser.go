@@ -14,27 +14,7 @@ func collectRawPageInfo(r io.Reader) otherInfo{
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(r)
 	bufByte := buf.Bytes()
-	reg := regexp.MustCompile(`<script`)
-	scriptStarts := reg.FindAllIndex(bufByte, -1)
-	reg = regexp.MustCompile(`</script>`)
-	scriptEnds := reg.FindAllIndex(bufByte, -1)
-	JSCodeLen := 0
-	ei := 0
-	// There are two cases: 1. <script XXX> 2. <script XXX> XXX </script>
-	for si:= 0; si < len(scriptStarts); si++ {
-		// Case 2
-		if ei < len(scriptEnds) && (si + 1 == len(scriptStarts) || scriptStarts[si+1][0] > scriptEnds[ei][0]) {
-			JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[si][0]:scriptEnds[ei][1]])
-			ei += 1
-		} else { // case 1
-			var tmpEnd int
-			tmpEnd  = scriptStarts[si][1] + 1
-			for ;tmpEnd < len(bufByte) && bufByte[tmpEnd] != '>'; tmpEnd++{
-			}
-			JSCodeLen += utf8.RuneCount(bufByte[scriptStarts[si][0]:tmpEnd])
-		}
-	}
-	reg = regexp.MustCompile(`<frame`)
+	reg := regexp.MustCompile(`<frame`)
 	frameTagCount := len(reg.FindAllIndex(bufByte, -1))
 	reg = regexp.MustCompile(`<a `)
 	aTags := reg.FindAllIndex(bufByte, -1)
@@ -51,7 +31,6 @@ func collectRawPageInfo(r io.Reader) otherInfo{
 	}
 
 	return otherInfo{
-		JSCodeLen,
 		utf8.RuneCount(bufByte),
 		frameTagCount,
 		len(aTags),
@@ -68,8 +47,8 @@ func parseBodyNode(n *html.Node) treeInfo {
 	if (n.Type != html.ElementNode) && (n.Type != html.TextNode) {
 		return res
 	}
-	if (n.Type == html.ElementNode) && (n.Data == "script") {
-		return res
+	if n.Type == html.ElementNode && strings.ToLower(n.Data) == "script" {
+		res.bodyCodeLen += countCodeLen(n)
 	}
 	if (n.Type == html.TextNode) {
 		res.bodyTextLen += utf8.RuneCountInString(n.Data) - strings.Count(n.Data, " ") - strings.Count(n.Data,
@@ -88,6 +67,9 @@ func parseHeadNode(n *html.Node, titleNode bool) treeInfo {
 		res.headTextLen += utf8.RuneCountInString(n.Data) - strings.Count(n.Data, " ") - strings.Count(n.Data,
 			newLine)
 		return res
+	}
+	if n.Type == html.ElementNode && strings.ToLower(n.Data) == "script" {
+		res.headCodeLen += countCodeLen(n)
 	}
 
 	if (n.Type != html.ElementNode) && (n.Type != html.TextNode) {
@@ -159,4 +141,18 @@ func parseRoot(n *html.Node, depth int) treeInfo {
 		features = accumulateTreeInfo(features, tmp)
 	}
 	return features
+}
+
+func countCodeLen(n *html.Node) int {
+	len := 0
+	if n.Type == html.ElementNode && strings.ToLower(n.Data) == "script" {
+		for _,attr := range(n.Attr) {
+			len += utf8.RuneCountInString(attr.Key) + utf8.RuneCountInString(attr.Val)
+		}
+	}
+	len += utf8.RuneCountInString(n.Data)
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		len += countCodeLen(c)
+	}
+	return len
 }

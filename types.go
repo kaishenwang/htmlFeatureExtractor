@@ -8,6 +8,8 @@ import (
 type treeInfo struct {
 	headTextLen int
 	bodyTextLen int
+	headCodeLen int
+	bodyCodeLen int
 	index 	bool
 	follow  bool
 	archive bool
@@ -18,7 +20,6 @@ type treeInfo struct {
 }
 
 type otherInfo struct {
-	jsCodeLen     int
 	rawPageLen    int
 	frameTagCount int
 	aTagCount     int
@@ -37,6 +38,8 @@ func newTreeInfo() treeInfo {
 	return treeInfo{
 		0,
 		0,
+		0,
+		0,
 		true,
 		true,
 		true,
@@ -51,6 +54,8 @@ func accumulateTreeInfo(a treeInfo, b treeInfo) treeInfo {
 	return treeInfo{
 		a.headTextLen + b.headTextLen,
 		a.bodyTextLen + b.bodyTextLen,
+		a.headCodeLen + b.headCodeLen,
+		a.bodyCodeLen + b.bodyCodeLen,
 		a.index && b.index,
 		a.follow && b.follow,
 		a.archive && b.archive,
