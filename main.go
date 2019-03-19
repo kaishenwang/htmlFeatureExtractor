@@ -34,7 +34,7 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 		}
 		treeRes := parseRoot(doc, 0)
 		isRedirect := 2
-		if strings.Index(grabData.URL, "www") != -1 {
+		if strings.Index(grabData.URL, "www") == -1 {
 			isRedirect = 0
 			if grabData.Data.HTTP.RedirectResponseChain != nil {
 				for _, res := range grabData.Data.HTTP.RedirectResponseChain {
