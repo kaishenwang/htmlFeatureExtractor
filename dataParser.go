@@ -160,11 +160,3 @@ func parseRoot(n *html.Node, depth int) treeInfo {
 	}
 	return features
 }
-
-//
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

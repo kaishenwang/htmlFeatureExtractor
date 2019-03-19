@@ -28,6 +28,7 @@ type otherInfo struct {
 type pageInfo struct {
 	domain string
 	url    string
+	wwwRedirect int
 	tInfo  treeInfo
 	oInfo  otherInfo
 }
