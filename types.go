@@ -55,7 +55,7 @@ func accumulateTreeInfo(a treeInfo, b treeInfo) treeInfo {
 		a.bodyTextLen + b.bodyTextLen,
 		a.codeLen + b.codeLen,
 		a.aTagCount + b.aTagCount,
-		a.aTagLen + a.aTagLen,
+		a.aTagLen + b.aTagLen,
 		a.frameCount + b.frameCount,
 		a.index && b.index,
 		a.follow && b.follow,
