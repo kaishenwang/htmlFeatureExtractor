@@ -111,6 +111,7 @@ func main() {
 	if len(validDomainsFile) > 0 {
 		var f *os.File
 		var err error
+		validDomains = make (map[string] bool)
 		if f, err = os.Open(validDomainsFile); err == nil {
 			s := bufio.NewScanner(f)
 			useValidDomains = true
