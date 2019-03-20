@@ -17,6 +17,9 @@ import (
 func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGroup) {
 	defer (*wg).Done()
 	for line:= range(input) {
+		if line[:4] == "null" {
+			continue
+		}
 		grabData := encodedGrab{}
 		json.Unmarshal([]byte(line), &grabData)
 		if grabData.Error != nil && len(*grabData.Error) > 0 {
