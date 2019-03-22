@@ -8,12 +8,13 @@ import (
 
 // Tree Parsing
 
-func parseBodyNode(n *html.Node) treeInfo {
+func parseBodyNode(n *html.Node, belongScript bool) treeInfo {
 	res := newTreeInfo()
+	isScript := false
 	if (n.Type != html.ElementNode) && (n.Type != html.TextNode) {
 		return res
 	}
-	if (n.Type == html.TextNode) {
+	if (n.Type == html.TextNode && !belongScript) {
 		res.bodyTextLen += utf8.RuneCountInString(n.Data) - strings.Count(n.Data, " ") - 2*strings.Count(n.Data,
 			"\\n")
 		return res
@@ -22,6 +23,7 @@ func parseBodyNode(n *html.Node) treeInfo {
 		switch strings.ToLower(n.Data) {
 		case "script":
 			res.codeLen += countNodeLen(n)
+			isScript = true
 		case "frame":
 			res.frameCount += 1
 		case "a":
@@ -30,7 +32,7 @@ func parseBodyNode(n *html.Node) treeInfo {
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		res =  accumulateTreeInfo(res,parseBodyNode(c))
+		res =  accumulateTreeInfo(res,parseBodyNode(c, belongScript || isScript))
 	}
 	return res
 }
@@ -113,7 +115,7 @@ func parseRoot(n *html.Node, depth int) treeInfo {
 	}
 
 	if (n.Type == html.ElementNode) && (strings.ToLower(n.Data) == "body") {
-		features = accumulateTreeInfo(features, parseBodyNode(n))
+		features = accumulateTreeInfo(features, parseBodyNode(n, false))
 		return features
 	}
 

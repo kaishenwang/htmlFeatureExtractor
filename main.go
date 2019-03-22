@@ -62,7 +62,7 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 			grabData.Domain,
 			grabData.URL,
 			isRedirect,
-			utf8.RuneCountInString(grabData.Data.HTTP.Response.BodyText),
+			utf8.RuneCountInString(sTmp),
 			treeRes,
 		}
 	}
