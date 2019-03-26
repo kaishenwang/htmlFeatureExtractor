@@ -133,9 +133,12 @@ func countNodeLen(n *html.Node, recursive bool) int {
 	}
 
 	len += utf8.RuneCountInString(n.Data)
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		len += utf8.RuneCountInString(c.Data)
+	if recursive {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			len += countNodeLen(c, true)
+		}
 	}
+
 	return len
 }
 
