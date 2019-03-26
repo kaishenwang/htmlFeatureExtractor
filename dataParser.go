@@ -22,13 +22,13 @@ func parseBodyNode(n *html.Node, belongScript bool) treeInfo {
 	if n.Type == html.ElementNode {
 		switch strings.ToLower(n.Data) {
 		case "script":
-			res.codeLen += countNodeLen(n)
+			res.codeLen += countNodeLen(n, true)
 			isScript = true
 		case "frame":
 			res.frameCount += 1
 		case "a":
 			res.aTagCount += 1
-			res.aTagLen += countNodeLen(n)
+			res.aTagLen += countNodeLen(n, false)
 		}
 	}
 	for c := n.FirstChild; c != nil; c = c.NextSibling {
@@ -51,12 +51,12 @@ func parseHeadNode(n *html.Node, titleNode bool) treeInfo {
 	if n.Type == html.ElementNode {
 		switch strings.ToLower(n.Data) {
 		case "script":
-			res.codeLen += countNodeLen(n)
+			res.codeLen += countNodeLen(n, true)
 		case "frame":
 			res.frameCount += 1
 		case "a":
 			res.aTagCount += 1
-			res.aTagLen += countNodeLen(n)
+			res.aTagLen += countNodeLen(n, false)
 		case "meta":
 			attrs := n.Attr
 			robotTag := false
@@ -126,16 +126,19 @@ func parseRoot(n *html.Node, depth int) treeInfo {
 	return features
 }
 
-func countNodeLen(n *html.Node) int {
+func countNodeLen(n *html.Node, recursive bool) int {
 	len := 0
 	for _,attr := range(n.Attr) {
 		len += utf8.RuneCountInString(attr.Key) + utf8.RuneCountInString(attr.Val) + 1
 	}
 
 	len += utf8.RuneCountInString(n.Data)
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		len += countNodeLen(c)
+	if recursive {
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			len += countNodeLen(c, true)
+		}
 	}
+
 	return len
 }
 
