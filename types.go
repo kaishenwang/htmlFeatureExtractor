@@ -4,6 +4,7 @@ import (
 	"github.com/kwang40/zgrab/zlib"
 	"fmt"
 	"strconv"
+	"math"
 )
 
 
@@ -81,7 +82,7 @@ func ouputPageInfo(info pageInfo, randDomainDns int) string {
 	pageLen := float64(info.rawPageLen)
 	jsCode := float64(info.tInfo.codeLen)
 	readableText := float64(info.tInfo.headTextLen + info.tInfo.bodyTextLen)
-	aTagLen := float64(info.tInfo.aTagLen) / float64(info.tInfo.aTagCount)
+	aTagLen := float64(info.tInfo.aTagLen) / math.Max(1.0, float64(info.tInfo.aTagCount))
 	return fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
 		strconv.FormatFloat(pageLen/10000.0,'f', 6, 64),
 		strconv.FormatFloat(jsCode /pageLen,'f', 6, 64),
