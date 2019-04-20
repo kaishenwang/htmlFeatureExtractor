@@ -77,12 +77,36 @@ type encodedGrab struct {
 	ErrorComponent string    `json:"error_component,omitempty"`
 }
 
-func ouputPageInfo(info pageInfo) string {
-	return fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
-		info.domain, info.url, strconv.Itoa(info.wwwRedirect),strconv.Itoa(info.rawPageLen),
-		strconv.Itoa(info.tInfo.headTextLen), strconv.Itoa(info.tInfo.bodyTextLen),strconv.Itoa(info.tInfo.codeLen),
-		strconv.Itoa(info.tInfo.aTagCount), strconv.Itoa(info.tInfo.aTagLen), strconv.Itoa(info.tInfo.frameCount),
+func ouputPageInfo(info pageInfo, randDomainDns int) string {
+	pageLen := float64(info.rawPageLen)
+	jsCode := float64(info.tInfo.codeLen)
+	readableText := float64(info.tInfo.headTextLen + info.tInfo.bodyTextLen)
+	aTagLen := float64(info.tInfo.aTagLen) / float64(info.tInfo.aTagCount)
+	return fmt.Sprintf("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		strconv.FormatFloat(pageLen/10000.0,'f', 6, 64),
+		strconv.FormatFloat(jsCode /pageLen,'f', 6, 64),
+		strconv.FormatFloat(aTagLen/100.0,'f', 6, 64),
+		strconv.FormatFloat(readableText /pageLen,'f', 6, 64),
 		boolToString(info.tInfo.index), boolToString(info.tInfo.follow), boolToString(info.tInfo.archive),
-		boolToString(info.tInfo.snippet), boolToString(info.tInfo.translate),
-		boolToString(info.tInfo.imageindex), boolToString(info.tInfo.unavailable_after))
+		strconv.Itoa(randDomainDns),
+		info.domain, info.url)
+}
+
+type Result struct {
+	AlteredName string        `json:"altered_name,omitempty"`
+	Name        string        `json:"name,omitempty"`
+	Nameserver  string        `json:"nameserver,omitempty"`
+	Class       string        `json:"class,omitempty"`
+	AlexaRank   int           `json:"alexa_rank,omitempty"`
+	Status      string        `json:"status,omitempty"`
+	Error       string        `json:"error,omitempty"`
+	Timestamp   string        `json:"timestamp,omitempty"`
+	Data        ALookupResult `json:"data,omitempty"`
+	Trace       []interface{} `json:"-"`
+}
+
+
+type ALookupResult struct {
+	IPv4Addresses []string `json:"ipv4_addresses,omitempty"`
+	IPv6Addresses []string `json:"ipv6_addresses,omitempty"`
 }

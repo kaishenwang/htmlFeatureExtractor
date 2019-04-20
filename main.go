@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+	"golang.org/x/net/publicsuffix"
 )
 
 func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGroup) {
@@ -81,31 +82,99 @@ func outputWriter(input <-chan pageInfo, wg *sync.WaitGroup) {
 		}
 	}
 	defer f.Close()
-	fieldLine := "domain,URL,wwwRedirect,rawPageLen,headTextLen,bodyTextLen,codeLen,aTagCount,aTagLen,frameCount," +
-		"index,follow,archive,snippet,translate,imageindex,unavailable_after\n"
+	fieldLine := "parked,rawPageLen,jsCodeRatio,aTagLen,readbleTextRatio,index,follow,archive,randomSubdomainIP,domain,URL\n"
 	f.WriteString(fieldLine)
 	for info := range(input) {
-		f.WriteString(ouputPageInfo(info))
+		randSubDomainDNS := 0
+		etldPOne,_ := publicsuffix.EffectiveTLDPlusOne(info.domain)
+		if v,ok := domainDnsInfo[etldPOne]; ok {
+			randSubDomainDNS = v
+		}
+		f.WriteString(parkLabel + "," + ouputPageInfo(info, randSubDomainDNS))
 	}
 }
 
+func parseDNSInfo() {
+	var f *os.File
+	var err error
+	ipv4Addrs := make (map[string] map[string] bool)
+	if f, err = os.Open(rrFile); err == nil {
+		s := bufio.NewScanner(f)
+		for s.Scan() {
+			line := s.Text()
+			rr := Result{}
+			json.Unmarshal([]byte(line), &rr)
+			if rr.Status != "NO_ERROR" {
+				continue
+			}
+			etldPOne,parseErr := publicsuffix.EffectiveTLDPlusOne(rr.Name)
+			if parseErr != nil {
+				continue
+			}
+			if _, ok := ipv4Addrs[etldPOne]; !ok {
+				ipv4Addrs[etldPOne] = make(map[string] bool)
+			}
+			for _,ipv4 := range(rr.Data.IPv4Addresses) {
+				ipv4Addrs[etldPOne][ipv4] = true
+			}
+		}
+	}
+	domainDnsInfo = make(map[string] int)
+	if f, err = os.Open(randSubRRFile); err == nil {
+		s := bufio.NewScanner(f)
+		for s.Scan() {
+			line := s.Text()
+			rr := Result{}
+			json.Unmarshal([]byte(line), &rr)
+			if rr.Status != "NO_ERROR" {
+				continue
+			}
+			etldPOne,parseErr := publicsuffix.EffectiveTLDPlusOne(rr.Name)
+			if parseErr != nil {
+				continue
+			}
+			if _, ok := ipv4Addrs[etldPOne]; !ok {
+				domainDnsInfo[etldPOne] = 1
+			}
+			for _,ipv4 := range(rr.Data.IPv4Addresses) {
+				if _,ok := ipv4Addrs[etldPOne][ipv4]; ok {
+					domainDnsInfo[etldPOne] = 2
+					break
+				}
+			}
+		}
+	}
+
+}
 var (
+	parkLabel string
 	inputFile string
 	outputFile string
+	rrFile string
+	randSubRRFile string
 	validDomainsFile string
 	useValidDomains bool
 	validDomains map[string] bool
+	domainDnsInfo map[string]int
+
 )
 
 func main() {
 	flags := flag.NewFlagSet("flags", flag.ExitOnError)
+	flags.StringVar(&parkLabel, "park-label", "1",
+		"use 0 or 1 to indicate if the domains in the input file are parked")
 	flags.StringVar(&inputFile, "input-file", "/data1/nsrg/kwang40/fullData/2019-03-11/banners.json",
 		"file contained zgrab data")
+	flags.StringVar(&rrFile, "rr-file", "",
+		"RR file for domains")
+	flags.StringVar(&randSubRRFile, "randRR-file", "",
+		"RR file for random subdomains")
 	flags.StringVar(&outputFile, "output-file", "-", "file for output, stdout as default")
 	flags.StringVar(&validDomainsFile, "valid-domains", "",
 		"file contains valid domains, default is none")
 	flags.Parse(os.Args[1:])
 
+	parseDNSInfo()
 	// Fulfill validDomains
 	useValidDomains = false
 	if len(validDomainsFile) > 0 {
