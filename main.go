@@ -23,7 +23,10 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 		}
 		grabData := encodedGrab{}
 		json.Unmarshal([]byte(line), &grabData)
-		if grabData.Error != nil && len(*grabData.Error) > 0 {
+		if grabData.Error != nil || len(*grabData.Error) > 0 {
+			continue
+		}
+		if grabData.Data.HTTP.Response.StatusCode == 404{
 			continue
 		}
 		if useValidDomains{
@@ -58,6 +61,9 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 					}
 				}
 			}
+		}
+		if len(sTmp) < 2 {
+			continue
 		}
 		output <- pageInfo{
 			grabData.Domain,
