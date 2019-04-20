@@ -23,7 +23,7 @@ func extractWorker(input <-chan string, output chan<- pageInfo, wg *sync.WaitGro
 		}
 		grabData := encodedGrab{}
 		json.Unmarshal([]byte(line), &grabData)
-		if grabData.Error != nil || len(*grabData.Error) > 0 {
+		if grabData.Error != nil && len(*grabData.Error) > 0 {
 			continue
 		}
 		if grabData.Data.HTTP.Response.StatusCode == 404{
